@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Global indirect tax engine API (VAT for Europe, Sales/Use Tax for the Americas)
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: jurisdictions
+    description: Tax jurisdictions and their rates
+  - name: categories
+    description: Product tax categories
+  - name: transactions
+    description: Taxed transactions
+  - name: engine
+    description: Tax calculation engine
+  - name: dashboard
+    description: Dashboard summaries and compliance reporting
 paths:
   /healthz:
     get:
@@ -24,7 +34,366 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /jurisdictions:
+    get:
+      operationId: listJurisdictions
+      tags: [jurisdictions]
+      summary: List tax jurisdictions
+      responses:
+        "200":
+          description: A list of jurisdictions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Jurisdiction"
+    post:
+      operationId: createJurisdiction
+      tags: [jurisdictions]
+      summary: Create a jurisdiction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JurisdictionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jurisdiction"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /jurisdictions/{id}:
+    get:
+      operationId: getJurisdiction
+      tags: [jurisdictions]
+      summary: Get a jurisdiction
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: A jurisdiction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jurisdiction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateJurisdiction
+      tags: [jurisdictions]
+      summary: Update a jurisdiction
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JurisdictionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Jurisdiction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteJurisdiction
+      tags: [jurisdictions]
+      summary: Delete a jurisdiction
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List product tax categories
+      responses:
+        "200":
+          description: A list of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a product tax category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a product tax category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a product tax category
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /calculate:
+    post:
+      operationId: calculateTax
+      tags: [engine]
+      summary: Calculate indirect tax for a transaction (preview, not persisted)
+      description: >
+        Runs the tax engine for a single transaction and returns the computed
+        net, tax, gross, applicable rate, jurisdiction, tax treatment, and a
+        human-readable explanation of the rule that was applied.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculationInput"
+      responses:
+        "200":
+          description: Calculation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculationResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List recorded transactions
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: customerType
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Record a transaction (runs the tax engine and persists the result)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get a transaction
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: A transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteTransaction
+      tags: [transactions]
+      summary: Delete a transaction
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: High-level totals across all transactions
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/by-jurisdiction:
+    get:
+      operationId: getTaxByJurisdiction
+      tags: [dashboard]
+      summary: Tax collected grouped by jurisdiction
+      responses:
+        "200":
+          description: Tax by jurisdiction
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JurisdictionTaxSummary"
+
+  /dashboard/recent-transactions:
+    get:
+      operationId: getRecentTransactions
+      tags: [dashboard]
+      summary: Most recent transactions
+      responses:
+        "200":
+          description: Recent transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+
+  /dashboard/filings:
+    get:
+      operationId: getFilingSummary
+      tags: [dashboard]
+      summary: Compliance filing summary grouped by period and jurisdiction
+      responses:
+        "200":
+          description: Filing summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FilingSummary"
+
 components:
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +403,399 @@ components:
       required:
         - status
 
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Jurisdiction:
+      type: object
+      required:
+        - id
+        - name
+        - code
+        - region
+        - taxType
+        - standardRate
+        - currency
+        - active
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+          description: ISO country code (EU) or US-XX state code
+        region:
+          type: string
+          enum: [EU, US, OTHER]
+        taxType:
+          type: string
+          enum: [VAT, SALES_TAX]
+        standardRate:
+          type: number
+          description: Standard tax rate as a percentage (e.g. 19 for 19%)
+        reducedRate:
+          type: ["number", "null"]
+          description: Reduced tax rate as a percentage, if applicable
+        currency:
+          type: string
+        active:
+          type: boolean
+
+    JurisdictionInput:
+      type: object
+      required:
+        - name
+        - code
+        - region
+        - taxType
+        - standardRate
+        - currency
+      properties:
+        name:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          enum: [EU, US, OTHER]
+        taxType:
+          type: string
+          enum: [VAT, SALES_TAX]
+        standardRate:
+          type: number
+        reducedRate:
+          type: ["number", "null"]
+        currency:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+
+    JurisdictionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          enum: [EU, US, OTHER]
+        taxType:
+          type: string
+          enum: [VAT, SALES_TAX]
+        standardRate:
+          type: number
+        reducedRate:
+          type: ["number", "null"]
+        currency:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - code
+        - rateType
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        rateType:
+          type: string
+          enum: [standard, reduced, zero, exempt]
+          description: Which rate tier this category maps to
+        description:
+          type: ["string", "null"]
+
+    CategoryInput:
+      type: object
+      required:
+        - name
+        - code
+        - rateType
+      properties:
+        name:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+        rateType:
+          type: string
+          enum: [standard, reduced, zero, exempt]
+        description:
+          type: ["string", "null"]
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+        rateType:
+          type: string
+          enum: [standard, reduced, zero, exempt]
+        description:
+          type: ["string", "null"]
+
+    CalculationInput:
+      type: object
+      required:
+        - sellerCountry
+        - buyerCountry
+        - customerType
+        - netAmount
+        - categoryId
+      properties:
+        sellerCountry:
+          type: string
+          description: Jurisdiction code of the seller
+        buyerCountry:
+          type: string
+          description: Jurisdiction code of the buyer (destination)
+        customerType:
+          type: string
+          enum: [B2B, B2C]
+        customerVatId:
+          type: ["string", "null"]
+          description: Buyer VAT registration number (required for B2B reverse charge)
+        netAmount:
+          type: number
+          description: Net amount before tax
+        categoryId:
+          type: integer
+          description: Product tax category id
+
+    CalculationResult:
+      type: object
+      required:
+        - netAmount
+        - taxRate
+        - taxAmount
+        - grossAmount
+        - taxTreatment
+        - currency
+        - explanation
+      properties:
+        netAmount:
+          type: number
+        taxRate:
+          type: number
+          description: Applied rate as a percentage
+        taxAmount:
+          type: number
+        grossAmount:
+          type: number
+        taxTreatment:
+          type: string
+          enum: [STANDARD, REDUCED, ZERO_RATED, EXEMPT, REVERSE_CHARGE, EXPORT]
+        currency:
+          type: string
+        jurisdictionName:
+          type: ["string", "null"]
+        jurisdictionCode:
+          type: ["string", "null"]
+        explanation:
+          type: string
+          description: Human-readable explanation of the rule applied
+
+    Transaction:
+      type: object
+      required:
+        - id
+        - reference
+        - transactionDate
+        - sellerCountry
+        - buyerCountry
+        - customerType
+        - netAmount
+        - taxRate
+        - taxAmount
+        - grossAmount
+        - taxTreatment
+        - currency
+        - createdAt
+      properties:
+        id:
+          type: integer
+        reference:
+          type: string
+        transactionDate:
+          type: string
+        sellerCountry:
+          type: string
+        buyerCountry:
+          type: string
+        region:
+          type: ["string", "null"]
+        customerType:
+          type: string
+          enum: [B2B, B2C]
+        customerVatId:
+          type: ["string", "null"]
+        categoryId:
+          type: ["integer", "null"]
+        categoryName:
+          type: ["string", "null"]
+        jurisdictionName:
+          type: ["string", "null"]
+        netAmount:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        grossAmount:
+          type: number
+        taxTreatment:
+          type: string
+          enum: [STANDARD, REDUCED, ZERO_RATED, EXEMPT, REVERSE_CHARGE, EXPORT]
+        currency:
+          type: string
+        explanation:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TransactionInput:
+      type: object
+      required:
+        - reference
+        - transactionDate
+        - sellerCountry
+        - buyerCountry
+        - customerType
+        - netAmount
+        - categoryId
+      properties:
+        reference:
+          type: string
+          minLength: 1
+        transactionDate:
+          type: string
+          minLength: 1
+        sellerCountry:
+          type: string
+          minLength: 1
+        buyerCountry:
+          type: string
+          minLength: 1
+        customerType:
+          type: string
+          enum: [B2B, B2C]
+        customerVatId:
+          type: ["string", "null"]
+        categoryId:
+          type: integer
+        netAmount:
+          type: number
+        notes:
+          type: ["string", "null"]
+
+    DashboardSummary:
+      type: object
+      required:
+        - totalNet
+        - totalTax
+        - totalGross
+        - transactionCount
+        - jurisdictionCount
+        - reverseChargeCount
+        - euTax
+        - usTax
+      properties:
+        totalNet:
+          type: number
+        totalTax:
+          type: number
+        totalGross:
+          type: number
+        transactionCount:
+          type: integer
+        jurisdictionCount:
+          type: integer
+        reverseChargeCount:
+          type: integer
+        euTax:
+          type: number
+        usTax:
+          type: number
+
+    JurisdictionTaxSummary:
+      type: object
+      required:
+        - jurisdictionName
+        - jurisdictionCode
+        - region
+        - taxType
+        - transactionCount
+        - totalNet
+        - totalTax
+      properties:
+        jurisdictionName:
+          type: string
+        jurisdictionCode:
+          type: string
+        region:
+          type: string
+        taxType:
+          type: string
+        transactionCount:
+          type: integer
+        totalNet:
+          type: number
+        totalTax:
+          type: number
+
+    FilingSummary:
+      type: object
+      required:
+        - period
+        - jurisdictionName
+        - jurisdictionCode
+        - taxType
+        - currency
+        - netAmount
+        - taxAmount
+        - transactionCount
+      properties:
+        period:
+          type: string
+          description: Reporting period (YYYY-MM)
+        jurisdictionName:
+          type: string
+        jurisdictionCode:
+          type: string
+        taxType:
+          type: string
+        currency:
+          type: string
+        netAmount:
+          type: number
+        taxAmount:
+          type: number
+        transactionCount:
+          type: integer

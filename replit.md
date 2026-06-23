@@ -1,6 +1,6 @@
-# [Project name]
+# Global Tax Engine
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An indirect tax engine for a global enterprise: computes VAT (Europe) and Sales/Use Tax (US/Americas) on transactions, with configurable jurisdiction rates, product tax categories, B2B/B2C handling (including EU reverse-charge), and a compliance dashboard.
 
 ## Run & Operate
 
@@ -22,23 +22,37 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- API contract (source of truth): `lib/api-spec/openapi.yaml` → run codegen to regenerate hooks/schemas
+- Generated Zod schemas + React Query hooks: `lib/api-zod/src/generated/`
+- DB schema: `lib/db/src/schema/{jurisdictions,categories,transactions}.ts` (re-exported in `index.ts`)
+- Tax engine logic: `artifacts/api-server/src/lib/tax-engine.ts`
+- API routes: `artifacts/api-server/src/routes/` (registered in `index.ts`)
+- Frontend (React + Vite): `artifacts/tax-engine/src/` — pages in `src/pages/`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Tax engine is a pure function `calculateTax(input, jurisdictions)`; routes fetch the category + jurisdictions and pass them in.
+- Engine throws `TaxConfigError` (→ 400) for missing jurisdictions on taxable supplies, rather than silently zero-rating. EU→non-EU exports are legitimately zero-rated without a destination jurisdiction.
+- Intra-EU B2B reverse charge requires a structurally valid EU VAT ID (`isValidEuVatId`); invalid IDs fall through to destination taxation.
+- Transactions denormalize computed fields (rate, tax, treatment, jurisdiction/category names, explanation) at creation time so the ledger is an immutable record even if config later changes.
+- Money/rates stored as `doublePrecision`; `transactionDate` is text (YYYY-MM-DD); `createdAt` is timestamptz.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Tax calculator (hero): compute VAT / sales tax for a single transaction with a plain-language explanation of the treatment.
+- Transactions ledger: record transactions (auto-calculated), filter, and delete.
+- Jurisdictions & Categories: full CRUD for rates and product tax tiers.
+- Compliance dashboard: liability summary, EU vs US split, tax by jurisdiction, filing periods, recent activity.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- No emojis in the UI.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Do NOT restart the `tax-engine` web workflow while a design subagent is mid-build (shows a broken app).
+- After editing `lib/api-spec/openapi.yaml`, run `pnpm --filter @workspace/api-spec run codegen` before relying on hooks/schemas.
+- First-run `tsc` typecheck is slow and may time out from bash; the running workflows are the source of truth for health.
 
 ## Pointers
 
